@@ -22,9 +22,16 @@ const itineraryDays={
   'Benaki Museum of Greek Culture':'Sep 23','Mavro Provato':'Sep 23','National Garden':'Sep 23','Panathenaic Stadium':'Sep 23','Syntagma Square':'Sep 23'
 };
 for(const place of places){if(itineraryDays[place.name])place.day=itineraryDays[place.name]}
-places.splice(places.findIndex(place=>place.name==='Drupes Spritzeria'),1);
+const removedStops=new Set(['Drupes Spritzeria','Hydra port','Poros town port','Xeri Elia','Skotadis','Marina Kallitheas cruise departure']);
+for(let index=places.length-1;index>=0;index--){if(removedStops.has(places[index].name))places.splice(index,1)}
+places.push(
+  {name:'Temple of Aphaia',lat:37.754358,lon:23.533098,day:'Island',kind:'Ancient sanctuary'},
+  {name:'Perdika port',lat:37.690517,lon:23.4488,day:'Island',kind:'Boat departure for Moni Island'},
+  {name:'Moni Island',lat:37.69084,lon:23.43444,day:'Island',kind:'Swimming and peacocks'},
+  {name:'Piraeus Port — dönüş',lat:37.9482534,lon:23.6420799,day:'Island',kind:'Return ferry terminal'}
+);
 const workbookMetrics={
-  'Sep 19':{km:2,steps:2600,note:'Çoğunlukla toplu taşıma ve mahalle içinde yürüyüş'},'Sep 20':{km:3.5,steps:4500},'Sep 21':{km:4.8,steps:6200},'Sep 22':{km:4.2,steps:5500,note:'Yüksek eğim içerir'},'Sep 23':{km:5.5,steps:7100},'Island':{km:3,steps:3900,note:'Liman çevresinde yürüyüş'},'Sep 25':{km:3.8,steps:4900,note:'Gün batımı için yokuş içerir'},'Sep 26':{km:1,steps:1300}
+  'Sep 19':{km:2,steps:2600,note:'Çoğunlukla toplu taşıma ve mahalle içinde yürüyüş'},'Sep 20':{km:3.5,steps:4500},'Sep 21':{km:4.8,steps:6200},'Sep 22':{km:4.2,steps:5500,note:'Yüksek eğim içerir'},'Sep 23':{km:5.5,steps:7100},'Island':{km:3,steps:3900,note:'Aegina ve liman çevresinde yürüyüş'},'Sep 25':{km:3.8,steps:4900,note:'Gün batımı için yokuş içerir'},'Sep 26':{km:1,steps:1300}
 };
 const map=L.map('map',{scrollWheelZoom:false,minZoom:1,maxZoom:18}).setView([37.973,23.728],13);
 L.maplibreGL({style:'https://tiles.openfreemap.org/styles/liberty'}).addTo(map);
@@ -35,7 +42,7 @@ document.querySelector('[data-filter="Island"]').textContent='24 Per · Ada gün
 const kindLabel={
   'Accommodation address (building only)':'Konaklama adresi (yalnızca bina konumu)',
   'Nearest practical metro for Veikou 52':'Veikou 52 için en yakın pratik metro',
-  'Sandwiches':'Sandviçler','Neighborhood taverna':'Mahalle tavernası','14 Misaraliotou; pies and bread':'14 Misaraliotou; börekler ve ekmek',
+  'Sandwiches':'Sandviçler','Neighborhood taverna':'Mahalle tavernası','14 Misaraliotou; pies and bread':'14 Misaraliotou; börekler ve ekmek','Ancient sanctuary':'Antik kutsal alan','Boat departure for Moni Island':'Moni Island için tekne kalkışı','Swimming and peacocks':'Yüzme ve tavus kuşları','Return ferry terminal':'Dönüş feribot terminali',
   'Museum':'Müze','Archaeological site':'Arkeolojik alan','10 Falirou; Mani cuisine':'10 Falirou; Mani mutfağı','South-slope view':'Güney yamaç manzarası',
   'Sunset viewpoint':'Gün batımı manzara noktası','Taverna':'Taverna','Historic quarter':'Tarihi mahalle','Monument':'Anıt',
   '4 Diogenous; classic Plaka alternative':'4 Diogenous; klasik Plaka seçeneği','21 Kydathineon; traditional taverna':'21 Kydathineon; geleneksel taverna',
@@ -57,7 +64,7 @@ const routeCandidates={
   'Sep 21':['Kerameikos','Ta Karamanlidika tou Fani','Monastiraki Square','Ancient Agora','Stoa of Attalos','Oikonomou Taverna'],
   'Sep 22':['Anafiotika','Roman Agora','Acropolis of Athens','Odeon of Herodes Atticus','Acropolis Museum','Mani Mani'],
   'Sep 23':['Benaki Museum of Greek Culture','Syntagma Square','National Garden','Panathenaic Stadium','Mavro Provato','Temple of Olympian Zeus',"Hadrian's Arch"],
-  'Island':['Marina Kallitheas cruise departure','Poros town port','Hydra port','Xeri Elia','Aegina port','Skotadis'],
+  'Island':['Piraeus ferry departure area','Aegina port','Temple of Aphaia','Perdika port','Moni Island','Piraeus Port — dönüş'],
   'Sep 25':['Platanos Taverna','Saita Taverna','To Kafeneio','Philopappos Monument','To Kati Allo'],
   'Sep 26':['Takis Bakery','Syngrou-Fix metro',airportName]
 };
@@ -81,9 +88,11 @@ function kilometers(a,b){const r=6371;const dLat=(b.lat-a.lat)*Math.PI/180;const
 function legMode(a,b,f,km){
   if(a.name===airportName||b.name===airportName)return 'Metro ve yürüyüş (yaklaşık 55–70 dk)';
   if(f==='Island'){
-    if(a.name==='Piraeus ferry departure area'||b.name==='Marina Kallitheas cruise departure')return 'Alternatif kalkış noktaları — yalnızca birini seçin';
-    if(a.day==='Base')return 'Taksi veya toplu taşıma ile kalkış iskelesine';
-    if(a.name.includes('departure')||b.name.includes('port'))return 'Feribot veya gezi teknesi';
+    if(a.name==='Moni Island'&&b.name==='Piraeus Port — dönüş')return 'Tekne ile Perdika, ardından Piraeus’a feribot';
+    if(a.name==='Moni Island'||b.name==='Moni Island')return 'Perdika’dan tekne (yaklaşık 8 dk)';
+    if(a.name==='Temple of Aphaia'||b.name==='Temple of Aphaia')return 'Aegina yerel otobüsü veya taksi';
+    if(a.name==='Perdika port'||b.name==='Perdika port')return 'Aegina yerel otobüsü veya taksi';
+    if(a.name.includes('departure')||b.name.includes('port'))return 'Feribot';
   }
   if(km<=1.4)return 'Yürüyüş';
   return 'Yürüyüş veya toplu taşıma';
@@ -121,6 +130,7 @@ function draw(f){
     b.onclick=()=>{const pin=pins.get(p.name);map.setView([p.lat,p.lon],Math.max(map.getZoom(),15));pin?.openPopup()};list.appendChild(b);
   }
 document.getElementById('listTitle').textContent=f==='athens'?'Atina noktaları':f==='all'?'Tüm noktalar':f==='Island'?'Ada limanları ve yemek mekânları':dayLabel[f]+' durakları';
+if(f==='Island')document.getElementById('listTitle').textContent='Saronic Islands rota durakları';
 drawSummary(f);
 if(f==='athens')map.fitBounds([[37.962,23.710],[37.992,23.748]],{padding:[20,20]});else if(f==='Island')map.fitBounds([[37.345,23.42],[37.955,23.71]],{padding:[25,25]});else if(active.length>1)map.fitBounds(L.featureGroup(active).getBounds().pad(.18),{padding:[20,20],maxZoom:15});
 for(const button of document.querySelectorAll('[data-filter]'))button.setAttribute('aria-pressed',button.dataset.filter===f?'true':'false');}
