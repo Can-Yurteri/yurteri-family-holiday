@@ -35,7 +35,7 @@ const kindLabel={
 const dots=L.layerGroup().addTo(map);let active=[];
 const airportName='Athens International Airport';
 const baseName='Koukaki home base — Veikou 52';
-const routeOrder={
+const routeCandidates={
   'Sep 19':[airportName,'Syngrou-Fix metro',baseName,'Guarantee','Takis Bakery','Lolos'],
   'Sep 20':[baseName,'Acropolis Museum','Acropolis of Athens','Odeon of Herodes Atticus','Mani Mani','Philopappos Monument','To Kati Allo'],
   'Sep 21':[baseName,'Temple of Olympian Zeus',"Hadrian's Arch",'Anafiotika','Roman Agora','To Kafeneio','Platanos Taverna','Saita Taverna'],
@@ -55,7 +55,14 @@ function navUrl(p){return 'https://www.google.com/maps/search/?api=1&query='+enc
 function placeName(p){return p.day==='Base'?'Konaklama üssü — Veikou 52, Koukaki':p.name}
 function kindName(p){return kindLabel[p.kind]||p.kind}
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function routeStops(f){const byName=new Map(places.map(p=>[p.name,p]));return (routeOrder[f]||[]).map(name=>byName.get(name)).filter(Boolean)}
+function routeStops(f){
+  const byName=new Map(places.map(p=>[p.name,p]));
+  const home=byName.get(baseName);
+  return (routeCandidates[f]||[])
+    .map(name=>byName.get(name))
+    .filter(p=>p&&p.name!==baseName)
+    .sort((a,b)=>kilometers(home,b)-kilometers(home,a));
+}
 function kilometers(a,b){const r=6371;const dLat=(b.lat-a.lat)*Math.PI/180;const dLon=(b.lon-a.lon)*Math.PI/180;const q=Math.sin(dLat/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLon/2)**2;return 2*r*Math.asin(Math.sqrt(q))}
 function legMode(a,b,f,km){
   if(a.name===airportName||b.name===airportName)return 'Metro ve yürüyüş (yaklaşık 55–70 dk)';
@@ -73,9 +80,26 @@ function drawSummary(f){
   if(stops.length<2){panel.innerHTML='<h3>Günlük rota özeti</h3><p>Mesafe, adım ve çok duraklı yol tarifi için bir gün seçin.</p>';return}
   const legs=stops.slice(1).map((to,i)=>{const from=stops[i];const direct=kilometers(from,to);const adjusted=direct*(f==='Island'?1.1:1.25);return {from,to,km:adjusted,mode:legMode(from,to,f,direct)}});
   const total=legs.reduce((sum,leg)=>sum+leg.km,0);const walking=legs.filter(leg=>leg.mode==='Yürüyüş').reduce((sum,leg)=>sum+leg.km,0);const steps=Math.round(walking*1350/100)*100;
-  panel.innerHTML='<h3>'+escapeHtml(dayLabel[f])+' rota özeti</h3><p class="metrics">Toplam rota: yaklaşık '+total.toFixed(1)+' km<br>Yürüyüş: yaklaşık '+walking.toFixed(1)+' km · '+steps.toLocaleString('tr-TR')+' adım</p><ol>'+legs.map(leg=>'<li><strong>'+escapeHtml(placeName(leg.from))+'</strong> → <strong>'+escapeHtml(placeName(leg.to))+'</strong><br>'+escapeHtml(leg.mode)+' · yaklaşık '+leg.km.toFixed(1)+' km</li>').join('')+'</ol><a class="route-link" href="'+directionsUrl(stops,f)+'" target="_blank" rel="noopener">Tüm durakları Google Maps’te aç</a><p class="route-note">Mesafeler yaklaşık değerlerdir. Havalimanı ve feribot bölümleri adım hesabına dahil değildir.</p>';
+  const home=places.find(p=>p.name===baseName);const farthest=kilometers(home,stops[0]);const nearest=kilometers(home,stops.at(-1));
+  panel.innerHTML='<h3>'+escapeHtml(dayLabel[f])+' rota özeti</h3><p class="metrics">Evden uzağa göre sıralandı: <strong>'+escapeHtml(placeName(stops[0]))+'</strong> ile başlar, <strong>'+escapeHtml(placeName(stops.at(-1)))+'</strong> ile biter.<br>Başlangıç: evden yaklaşık '+farthest.toFixed(1)+' km · Son durak: evden yaklaşık '+nearest.toFixed(1)+' km<br>Toplam rota: yaklaşık '+total.toFixed(1)+' km<br>Yürüyüş: yaklaşık '+walking.toFixed(1)+' km · '+steps.toLocaleString('tr-TR')+' adım</p><ol>'+legs.map(leg=>'<li><strong>'+escapeHtml(placeName(leg.from))+'</strong> → <strong>'+escapeHtml(placeName(leg.to))+'</strong><br>'+escapeHtml(leg.mode)+' · yaklaşık '+leg.km.toFixed(1)+' km</li>').join('')+'</ol><a class="route-link" href="'+directionsUrl(stops,f)+'" target="_blank" rel="noopener">Tüm durakları Google Maps’te aç</a><p class="route-note">Mesafeler yaklaşık değerlerdir. Havalimanı ve feribot bölümleri adım hesabına dahil değildir.</p>';
 }
-function draw(f){dots.clearLayers();active=[];const visible=places.filter(p=>match(p,f));const list=document.getElementById('list');list.innerHTML='';for(const p of visible){const color=colors[p.day]||'#777';const pin=L.circleMarker([p.lat,p.lon],{radius:p.day==='Base'?10:7,color:'#fff',weight:2,fillColor:color,fillOpacity:.95}).addTo(dots);pin.bindPopup('<strong>'+escapeHtml(placeName(p))+'</strong><br>'+escapeHtml(kindName(p))+'<br><small>'+escapeHtml(dayLabel[p.day])+'</small><br><a href="'+navUrl(p)+'" target="_blank" rel="noopener">Google Maps’te aç ↗</a>');active.push(pin);const b=document.createElement('button');b.className='place';b.innerHTML=escapeHtml(placeName(p))+'<span>'+escapeHtml(kindName(p))+'</span>';b.onclick=()=>{map.setView([p.lat,p.lon],Math.max(map.getZoom(),15));pin.openPopup()};list.appendChild(b)}
+function draw(f){
+  dots.clearLayers();active=[];
+  const mapped=places.filter(p=>match(p,f));
+  const itinerary=routeStops(f);
+  const listed=itinerary.length?itinerary:mapped;
+  const pins=new Map();
+  const list=document.getElementById('list');list.innerHTML='';
+  for(const p of mapped){
+    const color=colors[p.day]||'#777';
+    const pin=L.circleMarker([p.lat,p.lon],{radius:p.day==='Base'?10:7,color:'#fff',weight:2,fillColor:color,fillOpacity:.95}).addTo(dots);
+    pin.bindPopup('<strong>'+escapeHtml(placeName(p))+'</strong><br>'+escapeHtml(kindName(p))+'<br><small>'+escapeHtml(dayLabel[p.day])+'</small><br><a href="'+navUrl(p)+'" target="_blank" rel="noopener">Google Maps’te aç ↗</a>');
+    pins.set(p.name,pin);active.push(pin);
+  }
+  for(const p of listed){
+    const b=document.createElement('button');b.className='place';b.innerHTML=escapeHtml(placeName(p))+'<span>'+escapeHtml(kindName(p))+'</span>';
+    b.onclick=()=>{const pin=pins.get(p.name);map.setView([p.lat,p.lon],Math.max(map.getZoom(),15));pin?.openPopup()};list.appendChild(b);
+  }
 document.getElementById('listTitle').textContent=f==='athens'?'Atina noktaları':f==='all'?'Tüm noktalar':f==='Island'?'Ada limanları ve yemek mekânları':dayLabel[f]+' durakları';
 drawSummary(f);
 if(f==='athens')map.fitBounds([[37.962,23.710],[37.992,23.748]],{padding:[20,20]});else if(f==='Island')map.fitBounds([[37.345,23.42],[37.955,23.71]],{padding:[25,25]});else if(active.length>1)map.fitBounds(L.featureGroup(active).getBounds().pad(.18),{padding:[20,20],maxZoom:15});
