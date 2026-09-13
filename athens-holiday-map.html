@@ -100,6 +100,7 @@ function drawSummary(f){
   if(metric){
     const note=metric.note?' · '+metric.note:'';
     panel.querySelector('.metrics').innerHTML='Çalışma kitabındaki rota sırası: <strong>'+escapeHtml(placeName(stops[0]))+'</strong> ile başlar, <strong>'+escapeHtml(placeName(stops.at(-1)))+'</strong> ile biter.<br>Toplam: yaklaşık '+metric.km.toLocaleString('tr-TR')+' km · '+metric.steps.toLocaleString('tr-TR')+' adım'+escapeHtml(note);
+    panel.querySelector('.metrics').innerHTML='Çalışma kitabındaki rota sırası: <strong>'+escapeHtml(placeName(stops[0]))+'</strong> ile başlar, <strong>'+escapeHtml(placeName(stops.at(-1)))+'</strong> ile biter.<br>Seçili gün için tahmini yürüyüş: <strong>'+metric.km.toLocaleString('tr-TR')+' km</strong> · '+metric.steps.toLocaleString('tr-TR')+' adım'+escapeHtml(note);
   }
 }
 function draw(f){
